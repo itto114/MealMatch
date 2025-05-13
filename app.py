@@ -42,4 +42,4 @@ results = filter_restaurants(location, food_type, price_range, time_of_day)
 print("ร้านที่ตรงกับเงื่อนไข: ", results)
 
 if st.button("ค้นหาร้านอาหาร"):
-    st.success("ร้านที่ตรงกับเงื่อนไข: ", results)
+    print("ร้านที่ตรงกับเงื่อนไข: ", results)

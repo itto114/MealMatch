@@ -107,3 +107,22 @@ elif st.session_state.selected_store:
         feedback_df = pd.read_csv("user_feedback.csv")
         st.dataframe(feedback_df)
         st.info(f"📊 จำนวนครั้งที่มีการทำแบบสอบถาม: {len(feedback_df)} ครั้ง")
+
+# 📝 แสดง Feedback หลังจากผู้ใช้เลือกผลลัพธ์
+if os.path.exists("user_feedback.csv") and os.path.getsize("user_feedback.csv") > 0:
+    st.markdown("---")
+    st.markdown("### 📝 ความคิดเห็นจากผู้ใช้งานก่อนหน้า")
+    feedback_df = pd.read_csv("user_feedback.csv")
+    st.dataframe(feedback_df)
+    st.info(f"📊 จำนวนครั้งที่มีการทำแบบสอบถาม: {len(feedback_df)} ครั้ง")
+
+    # 🔐 สำหรับเจ้าของระบบ: ใส่รหัสเพื่อเข้าถึงฟังก์ชันล้างข้อมูล
+    with st.expander("🔐 เข้าสู่ระบบผู้ดูแล (สำหรับล้างข้อมูล)"):
+        admin_password = st.text_input("itto114", type="147258369z")
+        if admin_password == "your_secret_code":  # เปลี่ยนรหัสนี้ตามต้องการ
+            if st.button("🗑️ ล้างข้อมูลแบบสอบถามทั้งหมด"):
+                os.remove("user_feedback.csv")
+                st.warning("ข้อมูลทั้งหมดถูกลบแล้ว ❌")
+                st.rerun()
+        elif admin_password:
+            st.error("รหัสผ่านไม่ถูกต้อง ❌")

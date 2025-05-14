@@ -1,5 +1,6 @@
-import pandas as pd
 import streamlit as st
+import pandas as pd
+import os
 
 st.set_page_config(page_title="MealMatch 🍽️", layout="centered")
 st.title("🍽️ MealMatch - มื้อไหนดี?")
@@ -18,7 +19,6 @@ data = {
     "budget": ["50 - 100", "50 - 100", "50 - 100", "200+", "100 - 200", "50 - 100"],
     "time": ["กลางวัน", "กลางวัน", "เช้า", "กลางวัน", "เย็น", "เช้า"]
 }
-
 df = pd.DataFrame(data)
 
 # === ฟังก์ชันกรองร้าน ===
@@ -30,50 +30,54 @@ def filter_restaurants(location, food_type, price_range, time_of_day):
         (df['time'] == time_of_day)
     ]['name'].tolist()
 
-# === เก็บข้อมูล feedback ทุกครั้งที่ผู้ใช้เลือก ===
-feedback_file = "user_feedback.csv"
-if not pd.io.common.file_exists(feedback_file):
-    feedback_df = pd.DataFrame(columns=["location", "choice", "budget", "time", "selected_store"])
-else:
-    feedback_df = pd.read_csv(feedback_file)
-
-# === การแสดงผลลัพธ์ ===
+# === เมื่อกดปุ่มค้นหา ===
 if st.button("🔍 ค้นหาร้านอาหาร"):
     matched_restaurants = filter_restaurants(user_location, user_choice, user_budget, user_time)
 
     if matched_restaurants:
         st.success("ร้านที่ตรงกับคุณมีดังนี้ 🍜")
-        selected_store = st.radio("เลือกร้านที่คุณสนใจ:", matched_restaurants)
+        selected_store = st.radio("📌 เลือกร้านที่คุณสนใจ:", matched_restaurants)
 
-        # เก็บข้อมูล feedback ใน DataFrame
-        store_data = {
-            'location': user_location,
-            'choice': user_choice,
-            'budget': user_budget,
-            'time': user_time,
-            'selected_store': selected_store
-        }
+        if st.button("✅ ฉันเลือกร้านนี้"):
+            new_feedback = pd.DataFrame([{
+                "location": user_location,
+                "choice": user_choice,
+                "budget": user_budget,
+                "time": user_time,
+                "selected_store": selected_store
+            }])
 
-        feedback_df = feedback_df.append(store_data, ignore_index=True)
-        feedback_df.to_csv(feedback_file, index=False)
+            # บันทึกลง CSV
+            if os.path.exists("user_feedback.csv"):
+                new_feedback.to_csv("user_feedback.csv", mode="a", header=False, index=False)
+            else:
+                new_feedback.to_csv("user_feedback.csv", index=False)
 
-        st.success(f"คุณเลือกร้าน: {selected_store} ✅ ขอบคุณสำหรับการเลือก!")
+            st.success(f"คุณเลือกร้าน: {selected_store} ✅ ขอบคุณสำหรับการเลือก!")
 
     else:
         st.error("ไม่พบร้านอาหารที่ตรงกับตัวเลือกของคุณ 😥 ลองเปลี่ยนตัวเลือกดูนะ")
 
-# === การแสดง feedback ทั้งหมด ===
-st.subheader("Feedback จากผู้ใช้ทั้งหมด:")
-if len(feedback_df) > 0:
+        if st.button("❌ ไม่มีร้านไหนที่ตรงใจ"):
+            new_feedback = pd.DataFrame([{
+                "location": user_location,
+                "choice": user_choice,
+                "budget": user_budget,
+                "time": user_time,
+                "selected_store": "ไม่มีร้านที่ตรงใจ"
+            }])
+
+            if os.path.exists("user_feedback.csv"):
+                new_feedback.to_csv("user_feedback.csv", mode="a", header=False, index=False)
+            else:
+                new_feedback.to_csv("user_feedback.csv", index=False)
+
+            st.warning("ขอบคุณสำหรับความคิดเห็น! ระบบจะนำไปปรับปรุงต่อไป 🙏")
+
+# === แสดง Feedback ทั้งหมด ===
+if os.path.exists("user_feedback.csv") and os.path.getsize("user_feedback.csv") > 0:
+    feedback_df = pd.read_csv("user_feedback.csv")
+    st.markdown("---")
+    st.markdown("### 📝 ความคิดเห็นจากผู้ใช้งานก่อนหน้า")
     st.dataframe(feedback_df)
-
-# === แสดงจำนวนครั้งที่ผู้ใช้เข้ามาทำแบบสอบถาม ===
-total_responses = len(feedback_df)
-st.write(f"จำนวนครั้งที่มีการตอบแบบสอบถามทั้งหมด: {total_responses} ครั้ง")
-
-# === ปุ่มรีเซ็ตข้อมูล ===
-if st.button("🔄 รีเซ็ตข้อมูลทั้งหมด"):
-    # ลบไฟล์ feedback และสร้างใหม่
-    feedback_df = pd.DataFrame(columns=["location", "choice", "budget", "time", "selected_store"])
-    feedback_df.to_csv(feedback_file, index=False)
-    st.success("ข้อมูลทั้งหมดได้ถูกรีเซ็ตเรียบร้อยแล้ว! 🎉")
+    st.info(f"📊 จำนวนครั้งที่มีการทำแบบสอบถาม: {len(feedback_df)} ครั้ง")

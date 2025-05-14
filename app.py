@@ -1,7 +1,12 @@
 import streamlit as st
 import pandas as pd
+import joblib
 import os
 
+# โหลดโมเดลที่ฝึกเสร็จแล้ว
+model = joblib.load("restaurant_model.pkl")
+
+# ตั้งค่าหน้าแอป
 st.set_page_config(page_title="MealMatch 🍽️", layout="centered")
 st.title("🍽️ MealMatch - มื้อไหนดี?")
 
@@ -44,7 +49,7 @@ if not st.session_state.submitted:
         user_choice = st.selectbox("🍱 เลือกประเภทอาหาร", ["อาหารตามสั่ง", "อาหารอีสาน", "อาหารจานเดียว", "ปิ้งย่าง", "อาหารเกาหลี", "อาหารญี่ปุ่น"])
         user_budget = st.radio("💸 งบประมาณต่อมื้อ (บาท)", ["ไม่เกิน 50", "50 - 100", "100 - 200", "200+"])
         user_time = st.selectbox("⏰ เวลาที่มักออกไปกิน", ["เช้า", "กลางวัน", "เย็น"])
-        
+
         submitted = st.form_submit_button("🔍 ค้นหาร้านอาหาร")
         if submitted:
             st.session_state.submitted = True
@@ -72,10 +77,13 @@ elif st.session_state.submitted and not st.session_state.selected_store:
                 **inputs,
                 "selected_store": selected
             }])
-            if os.path.exists("user_feedback.csv"):
-                feedback.to_csv("user_feedback.csv", mode="a", header=False, index=False)
-            else:
+
+            # สร้างไฟล์ CSV ใหม่ (ถ้ายังไม่มี)
+            if not os.path.exists("user_feedback.csv"):
                 feedback.to_csv("user_feedback.csv", index=False)
+            else:
+                feedback.to_csv("user_feedback.csv", mode="a", header=False, index=False)
+
             st.rerun()
     else:
         st.error("ไม่พบร้านอาหารที่ตรงกับตัวเลือกของคุณ 😥")
@@ -85,10 +93,13 @@ elif st.session_state.submitted and not st.session_state.selected_store:
                 **inputs,
                 "selected_store": "ไม่มีร้านที่ตรงใจ"
             }])
-            if os.path.exists("user_feedback.csv"):
-                feedback.to_csv("user_feedback.csv", mode="a", header=False, index=False)
-            else:
+            
+            # สร้างไฟล์ CSV ใหม่ (ถ้ายังไม่มี)
+            if not os.path.exists("user_feedback.csv"):
                 feedback.to_csv("user_feedback.csv", index=False)
+            else:
+                feedback.to_csv("user_feedback.csv", mode="a", header=False, index=False)
+            
             st.rerun()
 
 # === STEP 3: แสดงหลังจากเลือกเสร็จแล้ว ===

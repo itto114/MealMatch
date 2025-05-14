@@ -1,109 +1,50 @@
-import streamlit as st
 import pandas as pd
-import os
+from sklearn.metrics import precision_score, recall_score, f1_score
 
-st.set_page_config(page_title="MealMatch 🍽️", layout="centered")
-st.title("🍽️ MealMatch - มื้อไหนดี?")
-
-# === ตั้งค่า session_state ครั้งแรก ===
-if "submitted" not in st.session_state:
-    st.session_state.submitted = False
-if "selected_store" not in st.session_state:
-    st.session_state.selected_store = None
-if "restart" not in st.session_state:
-    st.session_state.restart = False
-
-# === ฟังก์ชันรีเซ็ต ===
-def reset():
-    st.session_state.submitted = False
-    st.session_state.selected_store = None
-    st.session_state.restart = True
-
-# === ข้อมูลร้านอาหาร ===
-data = {
-    "name": ["ร้าน A", "ร้าน B", "ร้าน C", "ร้าน D", "ร้าน E", "ร้าน F"],
-    "location": ["ประตู 1", "ประตู 1", "ประตู 3", "ประตู 4", "ประตู 1", "ประตู 2"],
-    "choice": ["อาหารตามสั่ง", "อาหารตามสั่ง", "อาหารจานเดียว", "ปิ้งย่าง", "อาหารเกาหลี", "อาหารญี่ปุ่น"],
-    "budget": ["50 - 100", "50 - 100", "50 - 100", "200+", "100 - 200", "50 - 100"],
-    "time": ["กลางวัน", "กลางวัน", "เช้า", "กลางวัน", "เย็น", "เช้า"]
+# ข้อมูลที่เก็บจากการเลือกของผู้ใช้และผลลัพธ์ที่โมเดลทำนาย
+user_data = {
+    'user_choice': [],
+    'predicted_choice': [],
+    'is_correct': []
 }
-df = pd.DataFrame(data)
 
-# === ฟังก์ชันกรองร้าน ===
-def filter_restaurants(location, food_type, price_range, time_of_day):
-    return df[
-        (df['location'] == location) &
-        (df['choice'] == food_type) &
-        (df['budget'] == price_range) &
-        (df['time'] == time_of_day)
-    ]['name'].tolist()
+# ฟังก์ชันเก็บข้อมูลและคำนวณ
+def store_and_calculate(user_choice, predicted_choice):
+    # เก็บข้อมูลการตอบกลับ
+    user_data['user_choice'].append(user_choice)
+    user_data['predicted_choice'].append(predicted_choice)
+    
+    # เช็คว่าโมเดลทำนายถูกต้องหรือไม่
+    is_correct = 1 if user_choice == predicted_choice else 0
+    user_data['is_correct'].append(is_correct)
 
-# === STEP 1: แสดงแบบสอบถาม ถ้ายังไม่ได้ submit ===
-if not st.session_state.submitted:
-    with st.form("user_form"):
-        user_location = st.selectbox("📍 บริเวณที่ต้องการจะไป", ["ประตู 1", "ประตู 2", "ประตู 3", "ประตู 4"])
-        user_choice = st.selectbox("🍱 เลือกประเภทอาหาร", ["อาหารตามสั่ง", "อาหารอีสาน", "อาหารจานเดียว", "ปิ้งย่าง", "อาหารเกาหลี", "อาหารญี่ปุ่น"])
-        user_budget = st.radio("💸 งบประมาณต่อมื้อ (บาท)", ["ไม่เกิน 50", "50 - 100", "100 - 200", "200+"])
-        user_time = st.selectbox("⏰ เวลาที่มักออกไปกิน", ["เช้า", "กลางวัน", "เย็น"])
+# ตัวอย่างการเก็บข้อมูล
+store_and_calculate('อาหารตามสั่ง', 'อาหารตามสั่ง')
+store_and_calculate('ปิ้งย่าง', 'อาหารตามสั่ง')
+store_and_calculate('อาหารญี่ปุ่น', 'อาหารญี่ปุ่น')
 
-        submitted = st.form_submit_button("🔍 ค้นหาร้านอาหาร")
-        if submitted:
-            st.session_state.submitted = True
-            st.session_state.user_inputs = {
-                "location": user_location,
-                "choice": user_choice,
-                "budget": user_budget,
-                "time": user_time
-            }
+# แปลงข้อมูลเป็น DataFrame
+df_user_data = pd.DataFrame(user_data)
 
-# === STEP 2: แสดงผลลัพธ์เมื่อมีการ submit ===
-elif st.session_state.submitted and not st.session_state.selected_store:
-    inputs = st.session_state.user_inputs
-    matched_restaurants = filter_restaurants(
-        inputs["location"], inputs["choice"], inputs["budget"], inputs["time"]
-    )
+# คำนวณ Precision, Recall, F1-Score
+y_true = df_user_data['user_choice']  # ค่าจริงจากผู้ใช้
+y_pred = df_user_data['predicted_choice']  # ค่าทำนายจากโมเดล
 
-    if matched_restaurants:
-        st.success("ร้านที่ตรงกับคุณมีดังนี้ 🍜")
-        selected = st.radio("📌 เลือกร้านที่คุณสนใจ:", matched_restaurants)
+# คำนวณ Precision, Recall, F1-Score
+precision = precision_score(y_true, y_pred, average='binary', pos_label='อาหารตามสั่ง')
+recall = recall_score(y_true, y_pred, average='binary', pos_label='อาหารตามสั่ง')
+f1 = f1_score(y_true, y_pred, average='binary', pos_label='อาหารตามสั่ง')
 
-        if st.button("✅ ฉันเลือกร้านนี้"):
-            st.session_state.selected_store = selected
-            feedback = pd.DataFrame([{
-                **inputs,
-                "selected_store": selected
-            }])
-            if os.path.exists("user_feedback.csv"):
-                feedback.to_csv("user_feedback.csv", mode="a", header=False, index=False)
-            else:
-                feedback.to_csv("user_feedback.csv", index=False)
-            st.rerun()
+# คำนวณ Classification Rate (Accuracy)
+accuracy = (df_user_data['is_correct'].sum()) / len(df_user_data)
 
-    else:
-        st.error("ไม่พบร้านอาหารที่ตรงกับตัวเลือกของคุณ 😥")
-        if st.button("❌ ไม่มีร้านไหนที่ตรงใจ"):
-            st.session_state.selected_store = "ไม่มีร้านที่ตรงใจ"
-            feedback = pd.DataFrame([{
-                **inputs,
-                "selected_store": "ไม่มีร้านที่ตรงใจ"
-            }])
-            if os.path.exists("user_feedback.csv"):
-                feedback.to_csv("user_feedback.csv", mode="a", header=False, index=False)
-            else:
-                feedback.to_csv("user_feedback.csv", index=False)
-            st.rerun()
+# แสดงผลลัพธ์
+print(f"Classification Rate (Accuracy): {accuracy:.2f}")
+print(f"Precision: {precision:.2f}")
+print(f"Recall: {recall:.2f}")
+print(f"F1-Score: {f1:.2f}")
 
-# === STEP 3: แสดงผลหลังจากเลือกแล้ว + ปุ่มเริ่มใหม่ ===
-elif st.session_state.selected_store:
-    st.success(f"คุณเลือกร้าน: {st.session_state.selected_store} ✅ ขอบคุณสำหรับการเลือก!")
-    if st.button("🔁 เริ่มทำแบบสอบถามใหม่"):
-        reset()
-        st.rerun()
+# ส่งข้อมูลไปยัง Excel
+df_user_data.to_excel("user_predictions.xlsx", index=False)
 
-# === แสดงผล Feedback ทั้งหมดท้ายหน้า ===
-if os.path.exists("user_feedback.csv") and os.path.getsize("user_feedback.csv") > 0:
-    st.markdown("---")
-    st.markdown("### 📝 ความคิดเห็นจากผู้ใช้งานก่อนหน้า")
-    feedback_df = pd.read_csv("user_feedback.csv")
-    st.dataframe(feedback_df)
-    st.info(f"📊 จำนวนครั้งที่มีการทำแบบสอบถาม: {len(feedback_df)} ครั้ง")
+print("ข้อมูลถูกบันทึกลง Excel แล้ว!")

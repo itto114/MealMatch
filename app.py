@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
-import pickle  # ใช้ pickle แทน joblib
+import pickle
 
-# เปิดไฟล์ pickle และโหลดโมเดล
+# โหลดโมเดลจากไฟล์
 with open("meal_match_model.pkl", "rb") as f:
     model = pickle.load(f)
 

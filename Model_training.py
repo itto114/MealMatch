@@ -1,35 +1,40 @@
 import pandas as pd
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
 import pickle
 
-# ข้อมูลตัวอย่าง (สามารถแก้ไขเป็นข้อมูลของคุณเอง)
+# ข้อมูลร้านอาหาร
 data = {
-    "location": ["ประตู 1", "ประตู 2", "ประตู 3", "ประตู 4", "ประตู 1", "ประตู 2"],
-    "choice": ["อาหารตามสั่ง", "อาหารอีสาน", "อาหารจานเดียว", "ปิ้งย่าง", "อาหารญี่ปุ่น", "อาหารเกาหลี"],
-    "budget": ["50 - 100", "100 - 200", "50 - 100", "200+", "100 - 200", "50 - 100"],
-    "time": ["กลางวัน", "เย็น", "เช้า", "กลางวัน", "เย็น", "กลางวัน"],
-    "selected_store": [1, 0, 1, 0, 1, 0]  # 1 คือร้านที่เลือก, 0 คือไม่ได้เลือก
+    "name": ["ร้าน A", "ร้าน B", "ร้าน C", "ร้าน D", "ร้าน E", "ร้าน F"],
+    "location": ["ประตู 1", "ประตู 1", "ประตู 3", "ประตู 4", "ประตู 1", "ประตู 2"],
+    "choice": ["อาหารตามสั่ง", "อาหารตามสั่ง", "อาหารจานเดียว", "ปิ้งย่าง", "อาหารเกาหลี", "อาหารญี่ปุ่น"],
+    "budget": ["50 - 100", "50 - 100", "50 - 100", "200+", "100 - 200", "50 - 100"],
+    "time": ["กลางวัน", "กลางวัน", "เช้า", "กลางวัน", "เย็น", "เช้า"]
 }
 
 df = pd.DataFrame(data)
 
-# แปลงข้อมูลเป็น One-Hot Encoding
-df_encoded = pd.get_dummies(df)
+# แปลงข้อมูลเป็นตัวเลข
+df['location'] = df['location'].map({"ประตู 1": 0, "ประตู 2": 1, "ประตู 3": 2, "ประตู 4": 3})
+df['choice'] = df['choice'].map({"อาหารตามสั่ง": 0, "อาหารอีสาน": 1, "อาหารจานเดียว": 2, "ปิ้งย่าง": 3, "อาหารเกาหลี": 4, "อาหารญี่ปุ่น": 5})
+df['budget'] = df['budget'].map({"50 - 100": 0, "100 - 200": 1, "200+": 2, "ไม่เกิน 50": 3})
+df['time'] = df['time'].map({"กลางวัน": 0, "เช้า": 1, "เย็น": 2})
 
-# แยกข้อมูลออกเป็น X (features) และ y (target)
-X = df_encoded.drop("selected_store", axis=1)
-y = df_encoded["selected_store"]
+# แยก X (ตัวแปรอิสระ) และ y (ตัวแปรที่ต้องการทำนาย)
+X = df[['location', 'choice', 'budget', 'time']]
+y = df['name']
 
-# แบ่งข้อมูลเป็น training และ test set
+# แบ่งข้อมูลเป็น Train และ Test Set
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# สร้างและฝึกโมเดล
-model = RandomForestClassifier(n_estimators=100, random_state=42)
-model.fit(X_train, y_train)
+# สร้าง KNN โมเดล
+knn = KNeighborsClassifier(n_neighbors=3)
 
-# บันทึกโมเดลด้วย pickle
-with open("meal_match_model.pkl", "wb") as f:
-    pickle.dump(model, f)
+# ฝึกโมเดล
+knn.fit(X_train, y_train)
 
-print("โมเดลถูกฝึกและบันทึกสำเร็จ!")
+# บันทึกโมเดล
+with open('knn_model.pkl', 'wb') as f:
+    pickle.dump(knn, f)
+
+print("โมเดลได้ถูกฝึกและบันทึกแล้ว")

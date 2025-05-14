@@ -1,0 +1,17 @@
+import pandas as pd
+import os
+
+# ตรวจสอบว่าไฟล์มีอยู่
+if os.path.exists("user_feedback.csv"):
+    try:
+        # อ่านไฟล์ CSV
+        feedback_df = pd.read_csv("user_feedback.csv")
+        # ถ้าไม่มีข้อมูลในไฟล์
+        if feedback_df.empty:
+            st.warning("ไฟล์ความคิดเห็นว่างเปล่า")
+        else:
+            st.dataframe(feedback_df)
+    except pd.errors.ParserError:
+        st.error("เกิดข้อผิดพลาดในการอ่านไฟล์ CSV กรุณาตรวจสอบรูปแบบไฟล์")
+else:
+    st.warning("ไม่พบไฟล์ความคิดเห็น")

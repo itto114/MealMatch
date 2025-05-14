@@ -1,22 +1,16 @@
 import streamlit as st
 import pandas as pd
 import os
+from datetime import datetime
 
 st.set_page_config(page_title="MealMatch 🍽️", layout="centered")
 st.title("🍽️ MealMatch - มื้อไหนดี?")
 
-# === ตั้งค่า session_state ===
+# Session state สำหรับควบคุม flow
 if "submitted" not in st.session_state:
     st.session_state.submitted = False
-if "selected_store" not in st.session_state:
-    st.session_state.selected_store = None
-if "restart" not in st.session_state:
-    st.session_state.restart = False
-
-def reset():
-    st.session_state.submitted = False
-    st.session_state.selected_store = None
-    st.session_state.restart = True
+if "selected_feedback" not in st.session_state:
+    st.session_state.selected_feedback = None
 
 # === ข้อมูลร้านอาหาร ===
 data = {
@@ -28,23 +22,14 @@ data = {
 }
 df = pd.DataFrame(data)
 
-# === ฟังก์ชันกรองร้าน ===
-def filter_restaurants(location, food_type, price_range, time_of_day):
-    return df[
-        (df['location'] == location) &
-        (df['choice'] == food_type) &
-        (df['budget'] == price_range) &
-        (df['time'] == time_of_day)
-    ]['name'].tolist()
-
-# === STEP 1: แบบสอบถาม ===
+# === แบบสอบถาม ===
 if not st.session_state.submitted:
     with st.form("user_form"):
-        user_location = st.selectbox("📍 บริเวณที่ต้องการจะไป", ["ประตู 1", "ประตู 2", "ประตู 3", "ประตู 4"])
-        user_choice = st.selectbox("🍱 เลือกประเภทอาหาร", ["อาหารตามสั่ง", "อาหารอีสาน", "อาหารจานเดียว", "ปิ้งย่าง", "อาหารเกาหลี", "อาหารญี่ปุ่น"])
-        user_budget = st.radio("💸 งบประมาณต่อมื้อ (บาท)", ["ไม่เกิน 50", "50 - 100", "100 - 200", "200+"])
-        user_time = st.selectbox("⏰ เวลาที่มักออกไปกิน", ["เช้า", "กลางวัน", "เย็น"])
-        
+        user_location = st.selectbox("📍 บริเวณที่ต้องการจะไป", df["location"].unique())
+        user_choice = st.selectbox("🍱 เลือกประเภทอาหาร", df["choice"].unique())
+        user_budget = st.radio("💸 งบประมาณต่อมื้อ (บาท)", df["budget"].unique())
+        user_time = st.selectbox("⏰ เวลาที่มักออกไปกิน", df["time"].unique())
+
         submitted = st.form_submit_button("🔍 ค้นหาร้านอาหาร")
         if submitted:
             st.session_state.submitted = True
@@ -55,74 +40,74 @@ if not st.session_state.submitted:
                 "time": user_time
             }
 
-# === STEP 2: แสดงผลลัพธ์หลังจาก submit ===
-elif st.session_state.submitted and not st.session_state.selected_store:
-    inputs = st.session_state.user_inputs
-    matched_restaurants = filter_restaurants(
-        inputs["location"], inputs["choice"], inputs["budget"], inputs["time"]
-    )
+# === หลังส่งแบบสอบถาม ===
+if st.session_state.submitted:
+    user_inputs = st.session_state.user_inputs
+    filtered = df[
+        (df["location"] == user_inputs["location"]) &
+        (df["choice"] == user_inputs["choice"]) &
+        (df["budget"] == user_inputs["budget"]) &
+        (df["time"] == user_inputs["time"])
+    ]
+
+    matched_restaurants = filtered["name"].tolist()
 
     if matched_restaurants:
         st.success("ร้านที่ตรงกับคุณมีดังนี้ 🍜")
-        selected = st.radio("📌 เลือกร้านที่คุณสนใจ:", matched_restaurants)
+        selected = st.radio("เลือกร้านที่คุณสนใจ:", matched_restaurants)
 
-        if st.button("✅ ฉันเลือกร้านนี้"):
-            st.session_state.selected_store = selected
-            feedback = pd.DataFrame([{
-                **inputs,
-                "selected_store": selected
-            }])
+        if selected:
+            st.session_state.selected_feedback = selected
+            st.info(f"คุณเลือกร้าน: {selected} ✅ ขอบคุณสำหรับการเลือก!")
+
+            # === บันทึก feedback ===
+            feedback = {
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "location": user_inputs["location"],
+                "choice": user_inputs["choice"],
+                "budget": user_inputs["budget"],
+                "time": user_inputs["time"],
+                "selected": selected
+            }
+
+            feedback_df = pd.DataFrame([feedback])
             if os.path.exists("user_feedback.csv"):
-                feedback.to_csv("user_feedback.csv", mode="a", header=False, index=False)
+                feedback_df.to_csv("user_feedback.csv", mode="a", header=False, index=False)
             else:
-                feedback.to_csv("user_feedback.csv", index=False)
-            st.rerun()
-    else:
-        st.error("ไม่พบร้านอาหารที่ตรงกับตัวเลือกของคุณ 😥")
-        if st.button("❌ ไม่มีร้านไหนที่ตรงใจ"):
-            st.session_state.selected_store = "ไม่มีร้านที่ตรงใจ"
-            feedback = pd.DataFrame([{
-                **inputs,
-                "selected_store": "ไม่มีร้านที่ตรงใจ"
-            }])
+                feedback_df.to_csv("user_feedback.csv", index=False)
+
+            # === แสดง Feedback ทั้งหมด ===
             if os.path.exists("user_feedback.csv"):
-                feedback.to_csv("user_feedback.csv", mode="a", header=False, index=False)
-            else:
-                feedback.to_csv("user_feedback.csv", index=False)
-            st.rerun()
+                st.markdown("---")
+                st.markdown("### 📝 ความคิดเห็นจากผู้ใช้งานก่อนหน้า")
+                all_feedback = pd.read_csv("user_feedback.csv")
+                st.dataframe(all_feedback)
+                st.info(f"📊 จำนวนครั้งที่มีการทำแบบสอบถาม: {len(all_feedback)} ครั้ง")
 
-# === STEP 3: แสดงหลังจากเลือกเสร็จแล้ว ===
-elif st.session_state.selected_store:
-    st.success(f"คุณเลือกร้าน: {st.session_state.selected_store} ✅ ขอบคุณสำหรับการเลือก!")
+                with st.expander("🔐 เข้าสู่ระบบผู้ดูแล (สำหรับล้างข้อมูล)"):
+                    admin_password = st.text_input("กรุณาใส่รหัสผ่าน", type="password")
+                    if admin_password == "your_secret_code":  # เปลี่ยนเป็นรหัสของคุณ
+                        if st.button("🗑️ ล้างข้อมูลแบบสอบถามทั้งหมด"):
+                            os.remove("user_feedback.csv")
+                            st.warning("ข้อมูลทั้งหมดถูกลบแล้ว ❌")
+                            st.rerun()
+                    elif admin_password:
+                        st.error("รหัสผ่านไม่ถูกต้อง ❌")
 
-    # 🔁 ปุ่มเริ่มทำแบบสอบถามใหม่
-    if st.button("🔁 เริ่มทำแบบสอบถามใหม่"):
-        reset()
-        st.rerun()
-
-    # 📝 แสดง Feedback หลังเลือกเท่านั้น
-    if os.path.exists("user_feedback.csv") and os.path.getsize("user_feedback.csv") > 0:
-        st.markdown("---")
-        st.markdown("### 📝 ความคิดเห็นจากผู้ใช้งานก่อนหน้า")
-        feedback_df = pd.read_csv("user_feedback.csv")
-        st.dataframe(feedback_df)
-        st.info(f"📊 จำนวนครั้งที่มีการทำแบบสอบถาม: {len(feedback_df)} ครั้ง")
-
-# 📝 แสดง Feedback หลังจากผู้ใช้เลือกผลลัพธ์
-if os.path.exists("user_feedback.csv") and os.path.getsize("user_feedback.csv") > 0:
-    st.markdown("---")
-    st.markdown("### 📝 ความคิดเห็นจากผู้ใช้งานก่อนหน้า")
-    feedback_df = pd.read_csv("user_feedback.csv")
-    st.dataframe(feedback_df)
-    st.info(f"📊 จำนวนครั้งที่มีการทำแบบสอบถาม: {len(feedback_df)} ครั้ง")
-
-    # 🔐 สำหรับเจ้าของระบบ: ใส่รหัสเพื่อเข้าถึงฟังก์ชันล้างข้อมูล
-    with st.expander("🔐 เข้าสู่ระบบผู้ดูแล (สำหรับล้างข้อมูล)"):
-        admin_password = st.text_input("itto114", type="147258369z")
-        if admin_password == "your_secret_code":  # เปลี่ยนรหัสนี้ตามต้องการ
-            if st.button("🗑️ ล้างข้อมูลแบบสอบถามทั้งหมด"):
-                os.remove("user_feedback.csv")
-                st.warning("ข้อมูลทั้งหมดถูกลบแล้ว ❌")
+            # ปุ่มทำใหม่
+            st.markdown("---")
+            if st.button("🔄 เริ่มทำแบบสอบถามใหม่"):
+                st.session_state.submitted = False
+                st.session_state.selected_feedback = None
                 st.rerun()
-        elif admin_password:
-            st.error("รหัสผ่านไม่ถูกต้อง ❌")
+
+    else:
+        st.error("ไม่พบร้านอาหารที่ตรงกับตัวเลือกของคุณ 😥 ลองเปลี่ยนตัวเลือกดูนะ")
+        if st.button("❌ ไม่มีร้านไหนที่ตรงใจ"):
+            st.session_state.selected_feedback = "ไม่มีร้านไหนที่ตรงใจ"
+            st.warning("ขอบคุณสำหรับความคิดเห็น! ระบบจะนำไปปรับปรุงต่อไป 🙏")
+            st.markdown("---")
+            if st.button("🔄 เริ่มทำแบบสอบถามใหม่"):
+                st.session_state.submitted = False
+                st.session_state.selected_feedback = None
+                st.rerun()

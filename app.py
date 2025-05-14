@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
-import joblib
+import pickle
 import os
 
 # โหลดโมเดลที่ฝึกเสร็จแล้ว
-model = joblib.load("restaurant_model.pkl")
+model = pickle.load("restaurant_model.pkl")
 
 # ตั้งค่าหน้าแอป
 st.set_page_config(page_title="MealMatch 🍽️", layout="centered")

@@ -1,50 +1,109 @@
+import streamlit as st
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import classification_report
+import os
 
-# อ่านข้อมูลจากไฟล์ CSV ที่เก็บ feedback
-feedback_file = "user_feedback.csv"
-feedback_df = pd.read_csv(feedback_file)
+st.set_page_config(page_title="MealMatch 🍽️", layout="centered")
+st.title("🍽️ MealMatch - มื้อไหนดี?")
 
-# ตรวจสอบว่ามีข้อมูลที่จำเป็นหรือไม่
-required_columns = ["location", "choice", "budget", "time", "selected_restaurant"]
-if not all(col in feedback_df.columns for col in required_columns):
-    raise ValueError(f"ไฟล์ {feedback_file} ขาดข้อมูลที่จำเป็น")
+# === ตั้งค่า session_state ครั้งแรก ===
+if "submitted" not in st.session_state:
+    st.session_state.submitted = False
+if "selected_store" not in st.session_state:
+    st.session_state.selected_store = None
+if "restart" not in st.session_state:
+    st.session_state.restart = False
 
-# แปลงข้อมูลที่เป็นข้อความให้เป็นตัวเลข
-# ตัวอย่างการแปลงค่า: location, choice, time และ budget
-location_map = {"ประตู 1": 0, "ประตู 2": 1, "ประตู 3": 2, "ประตู 4": 3}
-choice_map = {"อาหารตามสั่ง": 0, "อาหารอีสาน": 1, "อาหารจานเดียว": 2, "ปิ้งย่าง": 3, "อาหารเกาหลี": 4, "อาหารญี่ปุ่น": 5}
-budget_map = {"ไม่เกิน 50": 0, "50 - 100": 1, "100 - 200": 2, "200+": 3}
-time_map = {"เช้า": 0, "กลางวัน": 1, "เย็น": 2}
+# === ฟังก์ชันรีเซ็ต ===
+def reset():
+    st.session_state.submitted = False
+    st.session_state.selected_store = None
+    st.session_state.restart = True
 
-# แปลงข้อมูลจาก categorical เป็น numeric
-feedback_df['location'] = feedback_df['location'].map(location_map)
-feedback_df['choice'] = feedback_df['choice'].map(choice_map)
-feedback_df['budget'] = feedback_df['budget'].map(budget_map)
-feedback_df['time'] = feedback_df['time'].map(time_map)
+# === ข้อมูลร้านอาหาร ===
+data = {
+    "name": ["ร้าน A", "ร้าน B", "ร้าน C", "ร้าน D", "ร้าน E", "ร้าน F"],
+    "location": ["ประตู 1", "ประตู 1", "ประตู 3", "ประตู 4", "ประตู 1", "ประตู 2"],
+    "choice": ["อาหารตามสั่ง", "อาหารตามสั่ง", "อาหารจานเดียว", "ปิ้งย่าง", "อาหารเกาหลี", "อาหารญี่ปุ่น"],
+    "budget": ["50 - 100", "50 - 100", "50 - 100", "200+", "100 - 200", "50 - 100"],
+    "time": ["กลางวัน", "กลางวัน", "เช้า", "กลางวัน", "เย็น", "เช้า"]
+}
+df = pd.DataFrame(data)
 
-# สร้าง X (features) และ y (target)
-X = feedback_df[["location", "choice", "budget", "time"]]
-y = feedback_df["selected_restaurant"]
+# === ฟังก์ชันกรองร้าน ===
+def filter_restaurants(location, food_type, price_range, time_of_day):
+    return df[
+        (df['location'] == location) &
+        (df['choice'] == food_type) &
+        (df['budget'] == price_range) &
+        (df['time'] == time_of_day)
+    ]['name'].tolist()
 
-# แบ่งข้อมูลเป็น train และ test
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# === STEP 1: แสดงแบบสอบถาม ถ้ายังไม่ได้ submit ===
+if not st.session_state.submitted:
+    with st.form("user_form"):
+        user_location = st.selectbox("📍 บริเวณที่ต้องการจะไป", ["ประตู 1", "ประตู 2", "ประตู 3", "ประตู 4"])
+        user_choice = st.selectbox("🍱 เลือกประเภทอาหาร", ["อาหารตามสั่ง", "อาหารอีสาน", "อาหารจานเดียว", "ปิ้งย่าง", "อาหารเกาหลี", "อาหารญี่ปุ่น"])
+        user_budget = st.radio("💸 งบประมาณต่อมื้อ (บาท)", ["ไม่เกิน 50", "50 - 100", "100 - 200", "200+"])
+        user_time = st.selectbox("⏰ เวลาที่มักออกไปกิน", ["เช้า", "กลางวัน", "เย็น"])
 
-# สร้างโมเดล KNN
-knn = KNeighborsClassifier(n_neighbors=3)
+        submitted = st.form_submit_button("🔍 ค้นหาร้านอาหาร")
+        if submitted:
+            st.session_state.submitted = True
+            st.session_state.user_inputs = {
+                "location": user_location,
+                "choice": user_choice,
+                "budget": user_budget,
+                "time": user_time
+            }
 
-# ฝึกโมเดล
-knn.fit(X_train, y_train)
+# === STEP 2: แสดงผลลัพธ์เมื่อมีการ submit ===
+elif st.session_state.submitted and not st.session_state.selected_store:
+    inputs = st.session_state.user_inputs
+    matched_restaurants = filter_restaurants(
+        inputs["location"], inputs["choice"], inputs["budget"], inputs["time"]
+    )
 
-# ทดสอบโมเดล
-y_pred = knn.predict(X_test)
+    if matched_restaurants:
+        st.success("ร้านที่ตรงกับคุณมีดังนี้ 🍜")
+        selected = st.radio("📌 เลือกร้านที่คุณสนใจ:", matched_restaurants)
 
-# แสดงผลลัพธ์การคำนวณ
-report = classification_report(y_test, y_pred, target_names=feedback_df["selected_restaurant"].unique())
-print(report)
+        if st.button("✅ ฉันเลือกร้านนี้"):
+            st.session_state.selected_store = selected
+            feedback = pd.DataFrame([{
+                **inputs,
+                "selected_store": selected
+            }])
+            if os.path.exists("user_feedback.csv"):
+                feedback.to_csv("user_feedback.csv", mode="a", header=False, index=False)
+            else:
+                feedback.to_csv("user_feedback.csv", index=False)
+            st.rerun()
 
-# บันทึกโมเดล (ถ้าต้องการ)
-import joblib
-joblib.dump(knn, "knn_model.pkl")
+    else:
+        st.error("ไม่พบร้านอาหารที่ตรงกับตัวเลือกของคุณ 😥")
+        if st.button("❌ ไม่มีร้านไหนที่ตรงใจ"):
+            st.session_state.selected_store = "ไม่มีร้านที่ตรงใจ"
+            feedback = pd.DataFrame([{
+                **inputs,
+                "selected_store": "ไม่มีร้านที่ตรงใจ"
+            }])
+            if os.path.exists("user_feedback.csv"):
+                feedback.to_csv("user_feedback.csv", mode="a", header=False, index=False)
+            else:
+                feedback.to_csv("user_feedback.csv", index=False)
+            st.rerun()
+
+# === STEP 3: แสดงผลหลังจากเลือกแล้ว + ปุ่มเริ่มใหม่ ===
+elif st.session_state.selected_store:
+    st.success(f"คุณเลือกร้าน: {st.session_state.selected_store} ✅ ขอบคุณสำหรับการเลือก!")
+    if st.button("🔁 เริ่มทำแบบสอบถามใหม่"):
+        reset()
+        st.rerun()
+
+# === แสดงผล Feedback ทั้งหมดท้ายหน้า ===
+if os.path.exists("user_feedback.csv") and os.path.getsize("user_feedback.csv") > 0:
+    st.markdown("---")
+    st.markdown("### 📝 ความคิดเห็นจากผู้ใช้งานก่อนหน้า")
+    feedback_df = pd.read_csv("user_feedback.csv")
+    st.dataframe(feedback_df)
+    st.info(f"📊 จำนวนครั้งที่มีการทำแบบสอบถาม: {len(feedback_df)} ครั้ง")

@@ -1,18 +1,16 @@
 import streamlit as st
 import pandas as pd
-import os
-from datetime import datetime
 
 st.set_page_config(page_title="MealMatch 🍽️", layout="centered")
 st.title("🍽️ MealMatch - มื้อไหนดี?")
 
-# Session state สำหรับควบคุม flow
-if "submitted" not in st.session_state:
-    st.session_state.submitted = False
-if "selected_feedback" not in st.session_state:
-    st.session_state.selected_feedback = None
+# === ตัวเลือกจากผู้ใช้ ===
+user_location = st.selectbox("📍 บริเวณที่ต้องการจะไป", ["ประตู 1", "ประตู 2", "ประตู 3", "ประตู 4"])
+user_choice = st.selectbox("🍱 เลือกประเภทอาหาร", ["อาหารตามสั่ง", "อาหารอีสาน", "อาหารจานเดียว", "ปิ้งย่าง", "อาหารเกาหลี", "อาหารญี่ปุ่น"])
+user_budget = st.radio("💸 งบประมาณต่อมื้อ (บาท)", ["ไม่เกิน 50", "50 - 100", "100 - 200", "200+"] )
+user_time = st.selectbox("⏰ เวลาที่มักออกไปกิน", ["เช้า", "กลางวัน", "เย็น"])
 
-# === ข้อมูลร้านอาหาร ===
+# === ข้อมูลร้านอาหารตัวอย่าง ===
 data = {
     "name": ["ร้าน A", "ร้าน B", "ร้าน C", "ร้าน D", "ร้าน E", "ร้าน F"],
     "location": ["ประตู 1", "ประตู 1", "ประตู 3", "ประตู 4", "ประตู 1", "ประตู 2"],
@@ -20,94 +18,55 @@ data = {
     "budget": ["50 - 100", "50 - 100", "50 - 100", "200+", "100 - 200", "50 - 100"],
     "time": ["กลางวัน", "กลางวัน", "เช้า", "กลางวัน", "เย็น", "เช้า"]
 }
+
 df = pd.DataFrame(data)
 
-# === แบบสอบถาม ===
-if not st.session_state.submitted:
-    with st.form("user_form"):
-        user_location = st.selectbox("📍 บริเวณที่ต้องการจะไป", df["location"].unique())
-        user_choice = st.selectbox("🍱 เลือกประเภทอาหาร", df["choice"].unique())
-        user_budget = st.radio("💸 งบประมาณต่อมื้อ (บาท)", ["น้อยกว่า 50", "50 - 100", "100 - 200", "200+"])
-        user_time = st.selectbox("⏰ เวลาที่มักออกไปกิน", df["time"].unique())
+# === ฟังก์ชันกรองร้าน ===
+def filter_restaurants(location, food_type, price_range, time_of_day):
+    return df[
+        (df['location'] == location) &
+        (df['choice'] == food_type) &
+        (df['budget'] == price_range) &
+        (df['time'] == time_of_day)
+    ]['name'].tolist()
 
-        submitted = st.form_submit_button("🔍 ค้นหาร้านอาหาร")
-        if submitted:
-            st.session_state.submitted = True
-            st.session_state.user_inputs = {
-                "location": user_location,
-                "choice": user_choice,
-                "budget": user_budget,
-                "time": user_time
-            }
-
-# === หลังส่งแบบสอบถาม ===
-if st.session_state.submitted:
-    user_inputs = st.session_state.user_inputs
-    filtered = df[
-        (df["location"] == user_inputs["location"]) &
-        (df["choice"] == user_inputs["choice"]) &
-        (df["budget"] == user_inputs["budget"]) &
-        (df["time"] == user_inputs["time"])
-    ]
-
-    matched_restaurants = filtered["name"].tolist()
+# === การแสดงผลลัพธ์ ===
+if st.button("🔍 ค้นหาร้านอาหาร"):
+    matched_restaurants = filter_restaurants(user_location, user_choice, user_budget, user_time)
 
     if matched_restaurants:
         st.success("ร้านที่ตรงกับคุณมีดังนี้ 🍜")
-        selected = st.radio("เลือกร้านที่คุณสนใจ:", matched_restaurants)
+        selected_store = st.radio("เลือกร้านที่คุณสนใจ:", matched_restaurants)
 
-        if selected:
-            st.session_state.selected_feedback = selected
-            st.info(f"คุณเลือกร้าน: {selected} ✅ ขอบคุณสำหรับการเลือก!")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("✅ เลือกร้านนี้"):
+                st.info(f"คุณเลือกร้าน: {selected_store} ✅ ขอบคุณสำหรับการเลือก!")
+                feedback = 1  # บันทึกว่าผู้ใช้เลือก
+        with col2:
+            if st.button("❌ ไม่มีร้านไหนที่ตรงใจ"):
+                st.warning("ขอบคุณสำหรับความคิดเห็น! ระบบจะนำไปปรับปรุงต่อไป 🙏")
+                feedback = 0  # บันทึกว่าผู้ใช้ไม่เลือก
 
-            # === บันทึก feedback ===
-            feedback = {
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "location": user_inputs["location"],
-                "choice": user_inputs["choice"],
-                "budget": user_inputs["budget"],
-                "time": user_inputs["time"],
-                "selected": selected
-            }
+        # === เก็บข้อมูล feedback ลงไฟล์ CSV ===
+        feedback_data = {
+            "location": user_location,
+            "choice": user_choice,
+            "budget": user_budget,
+            "time": user_time,
+            "feedback": feedback
+        }
 
-            feedback_df = pd.DataFrame([feedback])
-            if os.path.exists("user_feedback.csv"):
-                feedback_df.to_csv("user_feedback.csv", mode="a", header=False, index=False)
-            else:
-                feedback_df.to_csv("user_feedback.csv", index=False)
-
-            # === แสดง Feedback ทั้งหมด ===
-            if os.path.exists("user_feedback.csv"):
-                st.markdown("---")
-                st.markdown("### 📝 ความคิดเห็นจากผู้ใช้งานก่อนหน้า")
-                all_feedback = pd.read_csv("user_feedback.csv")
-                st.dataframe(all_feedback)
-                st.info(f"📊 จำนวนครั้งที่มีการทำแบบสอบถาม: {len(all_feedback)} ครั้ง")
-
-                with st.expander("🔐 เข้าสู่ระบบผู้ดูแล (สำหรับล้างข้อมูล)"):
-                    admin_password = st.text_input("กรุณาใส่รหัสผ่าน", type="password")
-                    if admin_password == "your_secret_code":  # เปลี่ยนเป็นรหัสของคุณ
-                        if st.button("🗑️ ล้างข้อมูลแบบสอบถามทั้งหมด"):
-                            os.remove("user_feedback.csv")
-                            st.warning("ข้อมูลทั้งหมดถูกลบแล้ว ❌")
-                            st.rerun()
-                    elif admin_password:
-                        st.error("รหัสผ่านไม่ถูกต้อง ❌")
-
-            # ปุ่มทำใหม่
-            st.markdown("---")
-            if st.button("🔄 เริ่มทำแบบสอบถามใหม่"):
-                st.session_state.submitted = False
-                st.session_state.selected_feedback = None
-                st.rerun()
-
+        feedback_df = pd.DataFrame([feedback_data])
+        feedback_df.to_csv("user_feedback.csv", mode='a', header=False, index=False)
+        
     else:
         st.error("ไม่พบร้านอาหารที่ตรงกับตัวเลือกของคุณ 😥 ลองเปลี่ยนตัวเลือกดูนะ")
-        if st.button("❌ ไม่มีร้านไหนที่ตรงใจ"):
-            st.session_state.selected_feedback = "ไม่มีร้านไหนที่ตรงใจ"
-            st.warning("ขอบคุณสำหรับความคิดเห็น! ระบบจะนำไปปรับปรุงต่อไป 🙏")
-            st.markdown("---")
-            if st.button("🔄 เริ่มทำแบบสอบถามใหม่"):
-                st.session_state.submitted = False
-                st.session_state.selected_feedback = None
-                st.rerun()
+
+# === การแสดงผล feedback ก่อนหน้า ===
+if st.button("📝 ดูความคิดเห็นจากผู้ใช้งานก่อนหน้า"):
+    try:
+        all_feedback = pd.read_csv("user_feedback.csv")
+        st.write(all_feedback)
+    except Exception as e:
+        st.error(f"ไม่สามารถโหลดข้อมูลความคิดเห็นได้: {e}")

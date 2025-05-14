@@ -1,7 +1,7 @@
 import pandas as pd
 from sklearn.metrics import precision_score, recall_score, f1_score
 
-# ข้อมูลที่เก็บจากการเลือกของผู้ใช้และผลลัพธ์ที่โมเดลทำนาย
+# ตัวแปรในการเก็บข้อมูล
 user_data = {
     'user_choice': [],
     'predicted_choice': [],
@@ -26,7 +26,7 @@ store_and_calculate('อาหารญี่ปุ่น', 'อาหารญ�
 # แปลงข้อมูลเป็น DataFrame
 df_user_data = pd.DataFrame(user_data)
 
-# คำนวณ Precision, Recall, F1-Score
+# คำนวณ Classification Rate, Precision, Recall, F1-Score
 y_true = df_user_data['user_choice']  # ค่าจริงจากผู้ใช้
 y_pred = df_user_data['predicted_choice']  # ค่าทำนายจากโมเดล
 
@@ -43,8 +43,3 @@ print(f"Classification Rate (Accuracy): {accuracy:.2f}")
 print(f"Precision: {precision:.2f}")
 print(f"Recall: {recall:.2f}")
 print(f"F1-Score: {f1:.2f}")
-
-# ส่งข้อมูลไปยัง Excel
-df_user_data.to_excel("user_predictions.xlsx", index=False)
-
-print("ข้อมูลถูกบันทึกลง Excel แล้ว!")

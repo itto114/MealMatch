@@ -1,40 +1,44 @@
 import pandas as pd
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split
-import pickle
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
-# ข้อมูลร้านอาหาร
+# สร้าง DataFrame ที่ใช้ในการฝึกโมเดล
 data = {
-    "name": ["ร้าน A", "ร้าน B", "ร้าน C", "ร้าน D", "ร้าน E", "ร้าน F"],
     "location": ["ประตู 1", "ประตู 1", "ประตู 3", "ประตู 4", "ประตู 1", "ประตู 2"],
     "choice": ["อาหารตามสั่ง", "อาหารตามสั่ง", "อาหารจานเดียว", "ปิ้งย่าง", "อาหารเกาหลี", "อาหารญี่ปุ่น"],
-    "budget": ["50 - 100", "50 - 100", "50 - 100", "200+", "100 - 200", "50 - 100"],
-    "time": ["กลางวัน", "กลางวัน", "เช้า", "กลางวัน", "เย็น", "เช้า"]
+    "budget": [1, 2, 1, 3, 2, 1],  # 1: 50-100, 2: 100-200, 3: 200+
+    "time": [1, 2, 3, 1, 2, 3],  # 1: เช้า, 2: กลางวัน, 3: เย็น
+    "feedback": [1, 1, 0, 1, 0, 0]  # 1: เลือก, 0: ไม่เลือก
 }
 
 df = pd.DataFrame(data)
 
-# แปลงข้อมูลเป็นตัวเลข
-df['location'] = df['location'].map({"ประตู 1": 0, "ประตู 2": 1, "ประตู 3": 2, "ประตู 4": 3})
-df['choice'] = df['choice'].map({"อาหารตามสั่ง": 0, "อาหารอีสาน": 1, "อาหารจานเดียว": 2, "ปิ้งย่าง": 3, "อาหารเกาหลี": 4, "อาหารญี่ปุ่น": 5})
-df['budget'] = df['budget'].map({"50 - 100": 0, "100 - 200": 1, "200+": 2, "ไม่เกิน 50": 3})
-df['time'] = df['time'].map({"กลางวัน": 0, "เช้า": 1, "เย็น": 2})
+# แยกคุณสมบัติและเป้าหมาย
+X = df[["location", "choice", "budget", "time"]]  # feature columns
+y = df["feedback"]  # target column (การเลือก/ไม่เลือก)
 
-# แยก X (ตัวแปรอิสระ) และ y (ตัวแปรที่ต้องการทำนาย)
-X = df[['location', 'choice', 'budget', 'time']]
-y = df['name']
+# แปลงข้อมูลไม่เป็นตัวเลขให้เป็นตัวเลข (one-hot encoding)
+X = pd.get_dummies(X)
 
-# แบ่งข้อมูลเป็น Train และ Test Set
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# แบ่งข้อมูลเป็นชุดฝึก (train) และชุดทดสอบ (test)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
-# สร้าง KNN โมเดล
-knn = KNeighborsClassifier(n_neighbors=3)
+# ฝึกโมเดล KNN
+model = KNeighborsClassifier(n_neighbors=3)
+model.fit(X_train, y_train)
 
-# ฝึกโมเดล
-knn.fit(X_train, y_train)
+# ทำนายผลลัพธ์
+y_pred = model.predict(X_test)
 
-# บันทึกโมเดล
-with open('knn_model.pkl', 'wb') as f:
-    pickle.dump(knn, f)
+# คำนวณค่าต่าง ๆ เช่น accuracy, precision, recall, F1-score
+accuracy = accuracy_score(y_test, y_pred)
+precision = precision_score(y_test, y_pred)
+recall = recall_score(y_test, y_pred)
+f1 = f1_score(y_test, y_pred)
 
-print("โมเดลได้ถูกฝึกและบันทึกแล้ว")
+# แสดงผลลัพธ์
+print(f"Accuracy: {accuracy:.2f}")
+print(f"Precision: {precision:.2f}")
+print(f"Recall: {recall:.2f}")
+print(f"F1 Score: {f1:.2f}")

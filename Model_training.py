@@ -1,7 +1,7 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-import joblib
+import pickle
 
 # ข้อมูลร้านอาหาร (สมมุติเป็นข้อมูลตัวอย่าง)
 data = {
@@ -32,6 +32,6 @@ model = RandomForestClassifier(n_estimators=100, random_state=42)
 model.fit(X_train, y_train)
 
 # บันทึกโมเดล
-joblib.dump(model, "restaurant_model.pkl")
+pickle.dump(model, "restaurant_model.pkl")
 
 print("โมเดลได้ถูกบันทึกเป็น 'restaurant_model.pkl'")

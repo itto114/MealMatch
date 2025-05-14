@@ -27,7 +27,7 @@ if not st.session_state.submitted:
     with st.form("user_form"):
         user_location = st.selectbox("📍 บริเวณที่ต้องการจะไป", df["location"].unique())
         user_choice = st.selectbox("🍱 เลือกประเภทอาหาร", df["choice"].unique())
-        user_budget = st.radio("💸 งบประมาณต่อมื้อ (บาท)", df["budget"].unique())
+        user_budget = st.radio("💸 งบประมาณต่อมื้อ (บาท)", ["น้อยกว่า 50", "50 - 100", "100 - 200", "200+"])
         user_time = st.selectbox("⏰ เวลาที่มักออกไปกิน", df["time"].unique())
 
         submitted = st.form_submit_button("🔍 ค้นหาร้านอาหาร")
